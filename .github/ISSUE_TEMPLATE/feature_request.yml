@@ -1,0 +1,32 @@
+name: Feature request
+description: Propose an improvement with a concrete use case
+title: "[Feature]: "
+labels: [enhancement]
+body:
+  - type: textarea
+    id: problem
+    attributes:
+      label: Use case
+      description: What problem cannot be solved cleanly with the current API?
+    validations:
+      required: true
+  - type: textarea
+    id: proposal
+    attributes:
+      label: Proposed behavior
+    validations:
+      required: true
+  - type: dropdown
+    id: compatibility
+    attributes:
+      label: Target line
+      options:
+        - Vue 2 / 1.x
+        - Vue 3 / planned 2.x
+        - Unsure
+    validations:
+      required: true
+  - type: textarea
+    id: alternatives
+    attributes:
+      label: Alternatives considered
