@@ -2,7 +2,7 @@
   <div style="background: #fff;">
     <div style="float:left">
       <span @click="setImage" class="dept_camera" title="截图">
-        截图 <img src='/static/images/camera1.png' width='30' class='logo' style='cursor: pointer' />
+        截图 <img :src="cameraImage" width="30" class="logo" style="cursor: pointer" />
       </span>
     </div>
     <div class="container" :style="{ height:treeHeight+'px'}">
@@ -18,7 +18,7 @@
 import vue2OrgTree from './org-tree/org-tree.vue'
 import orgData from './test.json'
 import html2canvas from 'html2canvas'
-var panzoom = require('panzoom')
+import panzoom from 'panzoom'
 /** 窗口拖拽 */
 export default {
   components: {
@@ -41,7 +41,8 @@ export default {
       instance: null,
       treeHeight: 600,
       isdeptjob: false,
-      isDrag: false
+      isDrag: false,
+      cameraImage: import.meta.env.BASE_URL + 'images/camera1.png'
     }
   },
   created() {
@@ -51,7 +52,6 @@ export default {
     this.getTreeHeight()
     // 增加监听事件，窗口变化时得到高度。
     window.addEventListener('resize', this.getTreeHeight, false)
-    window.clickButton1 = this.clickButton
     if (this.originalDeptInfo) {
       let tempData = []
       tempData.push(this.originalDeptInfo)
@@ -178,26 +178,44 @@ export default {
       console.log('节点点击')
     },
     // 点击图标
-    clickButton(h) {
+    clickButton(event) {
       event.stopPropagation()
       console.log('点击图标')
     },
     // 自己渲染节点样式
     renderContent(h, data) {
-      let _html = " <div class='dept_wrap'><div class='dept_content'><div class='dept'>" + (data.deptlevel > Number(this.currentlevel) + 2 + '') ? this.dealContent(data.deptname) : data.deptname + '</div>'
+      const departmentName = Number(data.deptlevel) > Number(this.currentlevel) + 2
+        ? this.dealContent(data.deptname)
+        : data.deptname
+      const departmentDetails = [h('div', { class: 'dept' }, departmentName)]
       // 一级二级显示负责人信息
       if (data.isjob === true && data.jobsite === '02') {
-        _html += "<div id='ID_" + data.id + "' class='dept_job'> &nbsp; </div>"
+        departmentDetails.push(h('div', {
+          class: 'dept_job',
+          attrs: { id: `ID_${data.id}` }
+        }, '\u00a0'))
       } else if (data.deptlevel < Number(this.currentlevel) + 2 + '') {
-        _html += "<div id='ID_" + data.id + "' class='dept_job'>" + data.jobname + (data.jobname ? ':' : '--') + data.username + ' </div>'
+        departmentDetails.push(h('div', {
+          class: 'dept_job',
+          attrs: { id: `ID_${data.id}` }
+        }, `${data.jobname}${data.jobname ? ':' : '--'}${data.username}`))
       }
-      _html += '</div>'
+      const content = [h('div', { class: 'dept_content' }, departmentDetails)]
       // 如果有子节点，显示图标
       if (data.children && data.deptlevel !== this.currentlevel && data.deptlevel !== '0') {
-        _html += "<div onClick='clickButton1(" + data.id + ")' onload='clickButton1()' class='dept_icon'><span><img src='/static/images/structureExtend.png' width='21' class='logo' style='cursor: pointer' /></span></div>"
+        content.push(h('div', {
+          class: 'dept_icon',
+          on: { click: this.clickButton }
+        }, [h('span', [h('img', {
+          class: 'logo',
+          attrs: {
+            src: import.meta.env.BASE_URL + 'images/structureExtend.png',
+            width: 21
+          },
+          style: { cursor: 'pointer' }
+        })])]))
       }
-      _html += '</div>'
-      return _html
+      return h('div', { class: 'dept_wrap' }, content)
     },
     dealContent(content) {
       if (!content) {
@@ -321,7 +339,7 @@ export default {
       html2canvas(document.getElementById('orgTree'), {
         canvas: canvas2
       }).then(function(canvas) {
-        that.saveAs(canvas.toDataURL('image/pdf'), 'orgchart.png')
+        that.saveAs(canvas.toDataURL('image/png'), 'orgchart.png')
       })
     },
     saveAs(uri, filename) {
