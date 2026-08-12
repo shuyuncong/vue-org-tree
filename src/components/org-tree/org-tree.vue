@@ -1,11 +1,3 @@
-<!--
- * @Author: your name
- * @Date: 2021-09-23 10:40:56
- * @LastEditTime: 2021-10-12 17:55:22
- * @LastEditors: Please set LastEditors
- * @Description: In User Settings Edit
- * @FilePath: \vue-demo\src\components\org-tree\org-tree.vue
--->
 <template>
   <div class="org-tree-container">
     <!-- key的作用是监视到data改变时，重新渲染组件 -->
@@ -27,7 +19,7 @@ export default {
     return {
       treeNodeKey: 0,
       dragState: {
-        dragg: null,
+        drag: null,
         drop: null
       }
     }
@@ -56,15 +48,13 @@ export default {
     collapsable: Boolean,
     renderContent: Function,
     labelWidth: {
-      type: String,
-      Number,
+      type: [String, Number],
       default: '150px'
     },
     labelClassName: [Function, String],
     selectedClassName: [Function, String],
     labelHeight: {
-      type: String,
-      Number,
+      type: [String, Number],
       default: '20px'
     }
   },
@@ -75,9 +65,11 @@ export default {
         event.dataTransfer.setData('text/plain', '')
       } catch (e) {}
       dragState.drag = data
+      this.$emit('on-node-drag-start', event, data)
     },
     onDragOver(event, data) {
       event.preventDefault()
+      this.$emit('on-node-drag-over', event, data)
     },
     onDrop(event, data) {
       event.preventDefault()
@@ -87,31 +79,29 @@ export default {
       this.$emit('on-node-drop', event, drag, data)
     },
     onExpand(e, data) {
-      if (data.expand) {
-        data.expand = !data.expand
-        if (!data.expand && data.children) {
-          this.collapse(data.children)
-        }
-      } else {
-        this.$set(data, 'expand', true)
+      const expandKey = this.props.expand
+      const childrenKey = this.props.children
+      const expanded = !data[expandKey]
+      this.$set(data, expandKey, expanded)
+      if (!expanded && data[childrenKey]) {
+        this.collapse(data[childrenKey])
       }
       this.$nextTick(() => {
         // 加载完成后调整卡脖子节点位置
         this.stuckNeckSelfAdaption()
       })
+      this.$emit('on-expand', data, expanded)
       this.$emit('resetOrg', data)
     },
     collapse(nodes) {
+      const expandKey = this.props.expand
+      const childrenKey = this.props.children
       nodes.forEach(node => {
-        if (node.expand) {
-          node.expand = false
+        if (node[expandKey]) {
+          this.$set(node, expandKey, false)
         }
-        node.children && this.collapse(node.children)
+        node[childrenKey] && this.collapse(node[childrenKey])
       })
-      //             this.$nextTick(() => {
-      //   // 加载完成后调整卡脖子节点位置
-      //   this.stuckNeckSelfAdaption()
-      // })
     },
     // 自适应调整
     stuckNeckSelfAdaption() {
@@ -149,6 +139,7 @@ export default {
         sibilingsList = sibilingsList.filter(o => {
           return o.className === 'org-tree-node-label'
         })
+        if (!sibilingsList.length) return
         // 获取被卡脖子的节点的高度
         var height = sibilingsList[0].offsetHeight
         // 设置卡脖子元素的margin-top,如果有多个则每次
@@ -180,6 +171,7 @@ export default {
         })
         // 获取被卡脖子节点连接的折叠按钮
         var collapsableBtnStuckNeckList = sibilingsList[0].firstElementChild.getElementsByClassName('org-tree-node-btn-stuck-neck')
+        if (!collapsableBtnStuckNeckList.length) return
         var collapsableBtnStuckNeckStyle = collapsableBtnStuckNeckList[0].style
         // 设置折叠按钮的top属性,需要根据左右两边卡脖子节点的数量来定，哪边数量多以哪边为准
         var leftStuckNeckListLength = Array.from(orgTreeNode.childNodes).filter(e => {

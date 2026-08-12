@@ -1,5 +1,6 @@
 const EVENTS = {
   CLICK: 'on-node-click',
+  FOCUS: 'on-node-focus',
   MOUSEOUT: 'on-node-mouseout',
   MOUSEOVER: 'on-node-mouseover',
   DRAGSTART: 'on-node-drag-start',
@@ -36,28 +37,25 @@ const isLeaf = (data, prop) => {
 
 // 创建 node 节点
 export function renderNode(h, data, context, parentNode) {
-  const { props, listeners } = context
+  const { props } = context
   var cls = []
   var stuckNeckListLeft = [] // 卡脖子的元素左侧
   var stuckNeckListRight = [] // 卡脖子的元素右侧
-  var childrenWhoutStuck = []
+  const children = data[props.props.children]
   // 子节点中存在卡脖子节点，则添加class，调整线的长度
-  if (data.children && Array.isArray(data.children) && data.children.length) {
-      childrenWhoutStuck = data.children.filter(item => {
+  if (Array.isArray(children) && children.length) {
+    children.forEach(item => {
       if (item.stuckNeckFlag && item.leftOrRight === 'left') {
         stuckNeckListLeft.push(item)
-      }
-      else if (item.stuckNeckFlag && item.leftOrRight === 'right') {
+      } else if (item.stuckNeckFlag && item.leftOrRight === 'right') {
         stuckNeckListRight.push(item)
-      } else {
-        return item
+      } else if (item.stuckNeckFlag) {
+        stuckNeckListLeft.push(item)
       }
     })
   }
-  // data.children = childrenWhoutStuck
   cls = ['org-tree-node']
   const childNodes = []
-  const children = data[props.props.children]
   // 卡脖子节点生成,左右两种,左面的先push右面的后push
   if (stuckNeckListLeft.length > 0) {
     createStuckNeckNode(h, stuckNeckListLeft, data, context, childNodes, 'org-tree-node-label-stuck-neck-left')
@@ -70,18 +68,18 @@ export function renderNode(h, data, context, parentNode) {
   childNodes.push(renderLabel(h, data, context, parentNode))
   // 只有全局设置不可折叠，局部设置的expand==true才生效,否则全部折叠
   if (!props.collapsable || data[props.props.expand]) {
-      childNodes.push(renderChildren(h, children, context, data))
-  } 
+    childNodes.push(renderChildren(h, children, context, data))
+  }
   if (stuckNeckListRight.length > 0) {
     createStuckNeckNode(h, stuckNeckListRight, data, context, childNodes, 'org-tree-node-label-stuck-neck-right')
-    }
+  }
   if (!data.stuckNeckFlag) {
     return h('div', {
       style: {
         '--lineCorlor': data.lineColor ? data.lineColor : '#ddd',
         '--lineWidthHorizontal': (data.lineWidthHorizontal ? data.lineWidthHorizontal : 1) + 'px', // 宽度 若没有宽度则默认2
         '--lineWidthVertical': (data.lineWidthVertical ? data.lineWidthVertical : 1) + 'px',
-        '--verticalLineHeight': (19 - (data.lineWidthHorizontal ? data.lineWidthHorizontal : 0)) + 'px',
+        '--verticalLineHeight': (19 - (data.lineWidthHorizontal || 0)) + 'px'
       },
       domProps: {
         className: cls.join(' ')
@@ -91,31 +89,53 @@ export function renderNode(h, data, context, parentNode) {
 }
 function createStuckNeckNode(h, stuckNeckList, data, context, childNodes, className) {
   const { props, listeners } = context
-  var cls = []
   // 卡脖子节点生成,左右两种
-  let { labelWidth, selectedClassName, selectedKey, labelClassName, renderContent } = props
+  const { selectedClassName, selectedKey, labelClassName, renderContent } = props
   // event handlers
   const clickHandler = listeners[EVENTS.CLICK]
   const mouseOutHandler = listeners[EVENTS.MOUSEOUT]
   const mouseOverHandler = listeners[EVENTS.MOUSEOVER]
   if (stuckNeckList.length > 0) {
     stuckNeckList.forEach(item => {
-      if (typeof renderContent === 'function') {
-        item.label = renderContent(h, item)
-      }
-      if (item.labelWidthExpand) {
-        labelWidth = item.labelWidthExpand
-      }
+      let labelWidth = item.labelWidthExpand || props.labelWidth
+      const label = item[props.props.label]
+      const content = typeof renderContent === 'function' ? renderContent(h, item) : label
       if (typeof labelWidth === 'number') {
         labelWidth = labelWidth + 'px'
       }
       const stuckNeckClassName = ['org-tree-node-label-inner', 'bg_node']
-        selectedClassName && selectedKey && item[selectedKey] && stuckNeckClassName.push(selectedClassName)
-        let labelClassNameTemp = null
-        if (typeof labelClassName === 'function') {
+      let selectedClassNameTemp = selectedClassName
+      if (typeof selectedClassNameTemp === 'function') {
+        selectedClassNameTemp = selectedClassNameTemp(item)
+      }
+      selectedClassNameTemp && selectedKey && item[selectedKey] && stuckNeckClassName.push(selectedClassNameTemp)
+      let labelClassNameTemp = labelClassName
+      if (typeof labelClassName === 'function') {
         labelClassNameTemp = labelClassName(item)
       }
       labelClassNameTemp && stuckNeckClassName.push(labelClassNameTemp)
+      const labelData = {
+        domProps: {
+          className: stuckNeckClassName.join(' ')
+        },
+        on: {
+          'click': createListener(clickHandler, item),
+          'mouseout': createListener(mouseOutHandler, item),
+          'mouseover': createListener(mouseOverHandler, item)
+        },
+        style: {
+          width: labelWidth,
+          'z-index': 99999,
+          'border': item.borderStyle,
+          'background-color': item.backColor
+        }
+      }
+      const labelChildren = []
+      if (typeof renderContent === 'function' && typeof content === 'string') {
+        labelData.domProps.innerHTML = content
+      } else if (content !== undefined && content !== null) {
+        labelChildren.push(content)
+      }
       // 生成卡脖子虚拟节点
       var stuckNeckLabelVnode = h('div', {
         domProps: {
@@ -129,26 +149,10 @@ function createStuckNeckNode(h, stuckNeckList, data, context, childNodes, classN
           'z-index': 99999,
           '--lineWidthHorizontal': (item.lineWidthHorizontal ? item.lineWidthHorizontal : 1) + 'px',
           '--lineWidthVertical': (item.lineWidthVertical ? item.lineWidthVertical : 1) + 'px',
-          '--verticalLineHeight': (19 - item.lineWidthHorizontal ? item.lineWidthHorizontal : 0) + 'px',
+          '--verticalLineHeight': (19 - (item.lineWidthHorizontal || 0)) + 'px'
           // width: labelWidth
         }
-      }, [h('div', {
-        domProps: {
-          className: stuckNeckClassName.join(' '),
-          innerHTML: item.label
-        },
-        on: {
-          'click': createListener(clickHandler, item),
-          'mouseout': createListener(mouseOutHandler, item),
-          'mouseover': createListener(mouseOverHandler, item),
-        },
-        style: {
-          width: labelWidth,
-          'z-index': 99999,
-          'border': item.borderStyle,
-          'background-color': item.backColor
-        }
-      }, item.label)])
+      }, [h('div', labelData, labelChildren)])
       childNodes.push(stuckNeckLabelVnode)
     })
   }
@@ -159,8 +163,9 @@ export function renderBtn(h, data, { props, listeners }) {
   let cls = ['org-tree-node-btn']
   // 若子元素中存在卡脖子节点，则折叠按钮需要下移40px
   var stuckNeckExist = false
-  if (Array.isArray(data.children) && data.children.length) {
-    const children = data.children.map(item => {
+  const children = data[props.props.children]
+  if (Array.isArray(children) && children.length) {
+    children.forEach(item => {
       if (item.stuckNeckFlag) {
         stuckNeckExist = true
       }
@@ -201,21 +206,26 @@ export function renderLabel(h, data, context, parentData) {
 
   // event handlers
   const clickHandler = listeners[EVENTS.CLICK]
+  const focusHandler = listeners[EVENTS.FOCUS]
   const mouseOutHandler = listeners[EVENTS.MOUSEOUT]
   const mouseOverHandler = listeners[EVENTS.MOUSEOVER]
-  const dragStartHandler = listeners[EVENTS.DRAGSTART];
-  const dragOverHandler = listeners[EVENTS.DRAGOVER];
-  const dropHander = listeners[EVENTS.DROP];
+  const dragStartHandler = listeners[EVENTS.DRAGSTART]
+  const dragOverHandler = listeners[EVENTS.DRAGOVER]
+  const dropHander = listeners[EVENTS.DROP]
   const childNodes = []
   if (typeof renderContent === 'function') {
-    let vnode = renderContent(h, data)
-    vnode && childNodes.push(h('div', { domProps: { innerHTML: vnode } }, data.label))
+    const content = renderContent(h, data)
+    if (typeof content === 'string') {
+      childNodes.push(h('div', { domProps: { innerHTML: content } }))
+    } else if (content !== undefined && content !== null) {
+      childNodes.push(content)
+    }
   } else {
     childNodes.push(label)
   }
   // childNodes.push(renderBtn(h, data, context))
 
-  if (!isLeaf(data, props.props.children)) {
+  if (props.collapsable && !isLeaf(data, props.props.children)) {
     childNodes.push(renderBtn(h, data, context))
   }
 
@@ -231,7 +241,7 @@ export function renderLabel(h, data, context, parentData) {
   if (typeof labelHeight === 'number') {
     labelHeight += 'px'
   }
-    if (typeof labelClassName === 'function') {
+  if (typeof labelClassName === 'function') {
     labelClassName = labelClassName(data)
   }
   labelClassName && cls.push(labelClassName)
@@ -242,14 +252,18 @@ export function renderLabel(h, data, context, parentData) {
   selectedClassName && selectedKey && data[selectedKey] && cls.push(selectedClassName)
   if (!data.stuckNeckFlag) {
     return h('div', {
+      attrs: {
+        tabindex: 0,
+        draggable: true
+      },
       domProps: {
-        className: 'org-tree-node-label',
-        draggable: false,
+        className: 'org-tree-node-label'
       },
       on: {
         'dragstart': createListener(dragStartHandler, data),
         'dragover': createListener(dragOverHandler, data),
-        'drop': createListener(dropHander, data)
+        'drop': createListener(dropHander, data),
+        'focus': createListener(focusHandler, data)
       }
     }, [h('div', {
       domProps: {
@@ -269,7 +283,7 @@ export function renderLabel(h, data, context, parentData) {
       on: {
         'click': createListener(clickHandler, data),
         'mouseout': createListener(mouseOutHandler, data),
-        'mouseover': createListener(mouseOverHandler, data),
+        'mouseover': createListener(mouseOverHandler, data)
       }
     }, childNodes)])
   }
@@ -289,10 +303,10 @@ export function renderChildren(h, list, context, parentData) {
         stuckNeckExistLeft.push(item)
       }
       return renderNode(h, item, context, parentData)
-    })
+    }).filter(Boolean)
     var stuckNeckExist = stuckNeckExistLeft.length > stuckNeckExistRight.length ? stuckNeckExistLeft.length : stuckNeckExistRight.length
     // 根据父节点的宽度计算偏移宽度，防止中轴线偏移(当只有一个子节点时才会有此问题)
-    var marginLeft = '0px';
+    var marginLeft = '0px'
     if (parentData && parentData.labelWidthExpand) {
       // 如果此节点也有宽度则
       if (list[0].labelWidthExpand) {
