@@ -1,32 +1,37 @@
 {
-  "name": "tapn-org-tree",
-  "version": "1.0.0",
-  "description": "A customizable organization tree component for Vue 2",
+  "name": "@shuyuncong/vue-hierarchy",
+  "version": "2.0.0-alpha.1",
+  "description": "Vue 3 and TypeScript framework for editable hierarchy, genealogy, permission, and relationship visualizations",
   "author": "shuyuncong",
   "license": "MIT",
   "private": false,
-  "main": "dist/vue-org-tree.umd.js",
-  "module": "dist/vue-org-tree.es.mjs",
+  "type": "module",
+  "main": "dist/vue-hierarchy.cjs",
+  "module": "dist/vue-hierarchy.js",
+  "types": "dist/index.d.ts",
   "style": "dist/style.css",
   "exports": {
     ".": {
-      "import": "./dist/vue-org-tree.es.mjs",
-      "require": "./dist/vue-org-tree.umd.js"
+      "types": "./dist/index.d.ts",
+      "import": "./dist/vue-hierarchy.js",
+      "require": "./dist/vue-hierarchy.cjs"
     },
     "./style.css": "./dist/style.css"
   },
   "scripts": {
     "dev": "vite",
     "start": "npm run dev",
-    "build": "vite build --config vite.lib.config.mjs",
-    "build:demo": "vite build",
-    "build:demo:test": "vite build --mode test",
-    "preview:demo": "vite preview",
+    "typecheck": "vue-tsc --noEmit",
     "test": "vitest run",
     "test:watch": "vitest",
     "test:e2e": "playwright test",
+    "benchmark": "npm run build && node scripts/benchmark.mjs",
+    "build": "npm run typecheck && vite build --config vite.lib.config.mts",
+    "build:demo": "npm run typecheck && vite build",
+    "build:demo:test": "vite build --mode test",
+    "preview:demo": "vite preview",
     "test:package": "node scripts/verify-package.mjs",
-    "verify": "npm test && npm run build && npm run build:demo && npm run test:package",
+    "verify": "npm run typecheck && npm test && npm run benchmark && npm run build && npm run build:demo && npm run test:package",
     "prepack": "npm run build"
   },
   "files": [
@@ -36,7 +41,8 @@
   ],
   "publishConfig": {
     "access": "public",
-    "registry": "https://registry.npmjs.org/"
+    "registry": "https://registry.npmjs.org/",
+    "tag": "next"
   },
   "repository": {
     "type": "git",
@@ -45,41 +51,44 @@
   "bugs": {
     "url": "https://github.com/shuyuncong/vue-org-tree/issues"
   },
-  "homepage": "https://shuyuncong.github.io/vue-org-tree/docs/#/demo",
+  "homepage": "https://shuyuncong.github.io/vue-org-tree/",
   "keywords": [
     "vue",
-    "vue2",
+    "vue3",
+    "typescript",
+    "hierarchy",
+    "genealogy",
     "organization-chart",
-    "org-tree",
-    "tree"
+    "permission-tree",
+    "graph"
   ],
   "sideEffects": [
     "*.css",
-    "*.less",
     "*.vue"
   ],
   "peerDependencies": {
-    "vue": "^2.7.0"
+    "vue": "^3.5.0"
   },
-  "dependencies": {},
+  "dependencies": {
+    "html-to-image": "^1.11.13"
+  },
   "devDependencies": {
-    "@playwright/test": "^1.55.0",
-    "@vitejs/plugin-vue2": "^2.3.4",
-    "@vue/test-utils": "^1.3.6",
-    "html2canvas": "^1.4.1",
+    "@playwright/test": "^1.62.1",
+    "@types/node": "^24.10.0",
+    "@vitejs/plugin-vue": "^6.0.8",
+    "@vue/server-renderer": "3.5.41",
+    "@vue/test-utils": "^2.4.11",
     "jsdom": "^24.1.3",
-    "less": "^4.2.0",
-    "panzoom": "^9.4.3",
+    "typescript": "^5.9.3",
     "vite": "^7.3.6",
+    "vite-plugin-dts": "^5.0.3",
     "vitest": "^4.1.10",
-    "vue": "2.7.16",
-    "vue-router": "^3.6.5",
-    "vue-template-compiler": "2.7.16"
+    "vue": "3.5.41",
+    "vue-tsc": "^3.3.9"
   },
   "browserslist": [
     "> 1%",
     "last 2 versions",
-    "not dead",
-    "not ie <= 11"
+    "not dead"
   ]
 }

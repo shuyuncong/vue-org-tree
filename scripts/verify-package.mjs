@@ -1,91 +1,72 @@
 import { execFileSync } from 'node:child_process'
-import { mkdtempSync, readFileSync, rmSync } from 'node:fs'
+import { mkdtempSync, readFileSync, rmSync, symlinkSync, writeFileSync } from 'node:fs'
 import { tmpdir } from 'node:os'
 import { join } from 'node:path'
 import { createRequire } from 'node:module'
+import { fileURLToPath, pathToFileURL } from 'node:url'
 
 const root = new URL('..', import.meta.url)
-const temporaryDirectory = mkdtempSync(join(tmpdir(), 'vue-org-tree-package-'))
+const rootPath = fileURLToPath(root)
+const temporaryDirectory = mkdtempSync(join(tmpdir(), 'vue-hierarchy-package-'))
 const rootPackage = JSON.parse(readFileSync(new URL('./package.json', root), 'utf8'))
+let archive
+
+function run(command, args, cwd = root, options = {}) {
+  return execFileSync(command, args, {
+    cwd,
+    stdio: options.encoding ? undefined : 'inherit',
+    encoding: options.encoding,
+    shell: process.platform === 'win32'
+  })
+}
 
 try {
-  execFileSync('npm', ['run', 'build'], {
-    cwd: root,
-    stdio: 'inherit',
-    shell: process.platform === 'win32'
-  })
-  const packOutput = execFileSync('npm', ['pack', '--json', '--ignore-scripts'], {
-    cwd: root,
-    encoding: 'utf8',
-    shell: process.platform === 'win32'
-  })
-  const [{ filename, files }] = JSON.parse(packOutput)
-  const archive = new URL(filename, root)
+  run('npm', ['run', 'build'])
+  const [{ filename, files }] = JSON.parse(run('npm', ['pack', '--json', '--ignore-scripts'], root, { encoding: 'utf8' }))
+  archive = new URL(filename, root)
   const paths = files.map(file => file.path)
-
-  for (const required of [
-    'dist/vue-org-tree.es.mjs',
-    'dist/vue-org-tree.umd.js',
-    'dist/style.css',
-    'README.md',
-    'LICENSE',
-    'package.json'
-  ]) {
+  for (const required of ['dist/vue-hierarchy.js', 'dist/vue-hierarchy.cjs', 'dist/index.d.ts', 'dist/style.css', 'README.md', 'LICENSE', 'package.json']) {
     if (!paths.includes(required)) throw new Error(`Package is missing ${required}`)
   }
-
-  if (paths.some(path => path.startsWith('src/') || path.startsWith('docs/'))) {
-    throw new Error('Source or workflow documentation leaked into the npm package')
+  if (paths.some(path => path.startsWith('src/') || path.startsWith('test/') || path.startsWith('docs/'))) {
+    throw new Error('Source, tests, or workflow documentation leaked into the package')
   }
+  const esBuild = readFileSync(new URL('./dist/vue-hierarchy.js', root), 'utf8')
+  const cjsBuild = readFileSync(new URL('./dist/vue-hierarchy.cjs', root), 'utf8')
+  if (/Vue\.js v3|@vue\/runtime/.test(esBuild + cjsBuild)) throw new Error('Vue appears to be bundled instead of externalized')
 
-  execFileSync('npm', ['init', '-y'], {
-    cwd: temporaryDirectory,
-    stdio: 'ignore',
-    shell: process.platform === 'win32'
-  })
-  execFileSync('npm', ['install', archive.pathname, 'vue@2.7.16', 'vue-server-renderer@2.7.16', '--ignore-scripts'], {
-    cwd: temporaryDirectory,
-    stdio: 'inherit',
-    shell: process.platform === 'win32'
-  })
+  writeFileSync(join(temporaryDirectory, 'package.json'), JSON.stringify({ name: 'vue-hierarchy-consumer', private: true, type: 'module' }))
+  run('npm', ['install', fileURLToPath(archive), '--ignore-scripts', '--no-audit', '--no-fund', '--legacy-peer-deps'], temporaryDirectory)
+  symlinkSync(join(rootPath, 'node_modules', 'vue'), join(temporaryDirectory, 'node_modules', 'vue'), 'junction')
 
   const require = createRequire(join(temporaryDirectory, 'consumer.cjs'))
   const packageDirectory = join(temporaryDirectory, 'node_modules', ...rootPackage.name.split('/'))
   const packageJson = require(join(packageDirectory, 'package.json'))
-  const moduleExports = require(packageDirectory)
-  const Vue = require(join(temporaryDirectory, 'node_modules', 'vue'))
-  const { createRenderer } = require(join(temporaryDirectory, 'node_modules', 'vue-server-renderer'))
+  const cjs = require(packageDirectory)
+  const esm = await import(pathToFileURL(join(packageDirectory, packageJson.module)).href)
+  const { createSSRApp, h } = await import('vue')
+  const { renderToString } = await import('@vue/server-renderer')
   const css = readFileSync(join(packageDirectory, packageJson.style), 'utf8')
-  const plugin = moduleExports.default || moduleExports
 
-  if (plugin.name !== 'Vue2OrgTree' || typeof plugin.install !== 'function') {
-    throw new Error('Installed tarball does not expose the Vue2OrgTree plugin')
+  for (const module of [cjs, esm]) {
+    if (typeof module.HierarchyView !== 'object' || typeof module.validateDocument !== 'function' || typeof module.togglePermission !== 'function') {
+      throw new Error('Installed tarball is missing component or core exports')
+    }
   }
-  if (!css.includes('.org-tree-container')) {
-    throw new Error('Installed tarball CSS is not consumable')
-  }
-  if (readFileSync(new URL('./dist/vue-org-tree.umd.js', root), 'utf8').includes('Vue.js v2')) {
-    throw new Error('Vue appears to be bundled into the UMD build')
-  }
+  if (!css.includes('.vh-view')) throw new Error('Installed tarball CSS is not consumable')
+  if (!readFileSync(join(packageDirectory, packageJson.types), 'utf8').includes('HierarchyView')) throw new Error('Type entry does not expose HierarchyView')
 
-  Vue.use(plugin)
-  const app = new Vue({
-    render: h => h('vue2-org-tree', {
-      props: {
-        data: { label: 'Tarball root', children: [] }
-      }
-    })
-  })
-  const html = await createRenderer().renderToString(app)
-  if (!html.includes('Tarball root') || !html.includes('org-tree-container')) {
-    throw new Error('Installed tarball did not render the Vue2OrgTree component')
-  }
+  const document = { version: '2.0', nodes: [{ id: 'root', label: 'Tarball root' }], edges: [] }
+  const html = await renderToString(createSSRApp({ render: () => h(esm.HierarchyView, { modelValue: document }) }))
+  if (!html.includes('Tarball root') || !html.includes('vh-view')) throw new Error('Installed package failed Vue 3 SSR rendering')
 
-  process.stdout.write(`Verified ${filename} with ${paths.length} files.\n`)
+  writeFileSync(join(temporaryDirectory, 'consumer.ts'), "import { HierarchyView, type HierarchyDocument } from '@shuyuncong/vue-hierarchy'\nconst document: HierarchyDocument = { version: '2.0', nodes: [], edges: [] }\nvoid HierarchyView\nvoid document\n")
+  writeFileSync(join(temporaryDirectory, 'tsconfig.json'), JSON.stringify({ compilerOptions: { strict: true, module: 'ESNext', moduleResolution: 'Bundler', target: 'ES2022', skipLibCheck: false }, include: ['consumer.ts'] }))
+  const tsc = join(rootPath, 'node_modules', '.bin', process.platform === 'win32' ? 'tsc.cmd' : 'tsc')
+  run(tsc, ['--noEmit'], temporaryDirectory)
+
+  process.stdout.write(`Verified ${filename}: ESM, CommonJS, declarations, CSS, Vue external, and SSR.\n`)
 } finally {
   rmSync(temporaryDirectory, { recursive: true, force: true })
-  const archiveName = `${rootPackage.name.replace(/^@/, '').replace('/', '-')}-${rootPackage.version}.tgz`
-  for (const file of [archiveName]) {
-    rmSync(new URL(file, root), { force: true })
-  }
+  if (archive) rmSync(archive, { force: true })
 }
