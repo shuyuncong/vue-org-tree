@@ -1,129 +1,189 @@
-# Vue Org Tree
+# Vue Hierarchy
 
-[English summary](#english-summary) · [现有在线演示](https://shuyuncong.github.io/vue-org-tree/docs/#/demo) · [路线图](https://github.com/shuyuncong/vue-org-tree/blob/master/ROADMAP.md) · [参与贡献](https://github.com/shuyuncong/vue-org-tree/blob/master/CONTRIBUTING.md)
+Vue 3 + TypeScript framework for editable hierarchy, genealogy, permission, and relationship visualizations. One typed node-and-edge document drives organization charts, permission DAGs, real family trees, and lazy-loaded relationship views.
 
-一个面向 Vue 2.7 的可定制组织结构树组件。除普通组织树之外，本项目还支持自定义节点内容、展开/折叠、选中状态、鼠标与拖放事件、连接线样式，以及位于主节点两侧的“肩膀节点”。仓库内的演示另外提供缩放和截图能力。
+- Package: `@shuyuncong/vue-hierarchy` (Vue 3, currently `2.0.0-alpha.1` on the `next` npm tag)
+- Vue 2 line: `tapn-org-tree` `1.x`, in maintenance (see [Versioning](#versioning-and-migration))
+- License: [MIT](LICENSE)
 
-![组织结构树演示](https://raw.githubusercontent.com/shuyuncong/vue-org-tree/master/static/images/example.png)
+## Screenshots
 
-## 项目状态
+| Organization chart | Permission tree |
+| --- | --- |
+| ![Organization chart](https://raw.githubusercontent.com/shuyuncong/vue-org-tree/master/static/images/hierarchy-organization.png) | ![Permission tree](https://raw.githubusercontent.com/shuyuncong/vue-org-tree/master/static/images/hierarchy-permission.png) |
 
-- `1.x`：Vue 2.7 稳定维护线，保持现有组件 API，接受缺陷修复、测试、文档和安全改进。
-- `2.x`：计划中的 Vue 3 版本，将作为独立兼容工作推进，详见 [ROADMAP.md](https://github.com/shuyuncong/vue-org-tree/blob/master/ROADMAP.md)。
-- Vue 2 已停止官方维护；新项目如无兼容负担，建议优先评估 Vue 3 生态。
+| Genealogy | Large dataset |
+| --- | --- |
+| ![Genealogy](https://raw.githubusercontent.com/shuyuncong/vue-org-tree/master/static/images/hierarchy-genealogy.png) | ![Large dataset](https://raw.githubusercontent.com/shuyuncong/vue-org-tree/master/static/images/hierarchy-large.png) |
 
-## 安装
+## Live demo
 
-公共版本发布后使用 npm 安装：
+https://shuyuncong.github.io/vue-org-tree/
+
+## Features
+
+- Vue 3 Composition API with strict TypeScript contracts and JSON-safe payloads.
+- Multi-parent DAG layout with deterministic ranks, spouse alignment, and per-parent edge visibility.
+- Family-linked genealogy semantics: dual parents, multiple spouses, former relationships, adoption, and step-parent roles.
+- Global permission propagation with checked, half-checked, and disabled-subgraph protection.
+- Transactional lazy loading with coalescing, abort signals, retry, and stale/conflict detection.
+- Immutable editing commands with single- and multiple-parent drag policies and explicit relationship removal.
+- Search, JSON import/export, and PNG/SVG image export.
+- Accessible by default: keyboard navigation and ARIA live regions.
+- Headless slots for nodes, node actions, edge labels, and the empty state.
+
+## Installation
 
 ```bash
-npm install tapn-org-tree
+npm install @shuyuncong/vue-hierarchy@next
 ```
 
-```js
-import Vue from 'vue'
-import Vue2OrgTree from 'tapn-org-tree'
-import 'tapn-org-tree/style.css'
-
-Vue.use(Vue2OrgTree)
-```
+## Quick start
 
 ```vue
-<template>
-  <vue2-org-tree
-    :data="tree"
-    :collapsable="true"
-    @on-node-click="onNodeClick"
-  />
-</template>
+<script setup lang="ts">
+import { ref } from 'vue'
+import { HierarchyView } from '@shuyuncong/vue-hierarchy'
+import type { HierarchyDocument } from '@shuyuncong/vue-hierarchy'
+import '@shuyuncong/vue-hierarchy/style.css'
 
-<script>
-export default {
-  data() {
-    return {
-      tree: {
-        label: '总部',
-        expand: true,
-        children: [
-          { label: '研发中心', children: [] },
-          { label: '运营中心', children: [] }
-        ]
-      }
-    }
-  },
-  methods: {
-    onNodeClick(event, node) {
-      console.log(node)
-    }
-  }
-}
+const document = ref<HierarchyDocument>({
+  version: '2.0',
+  nodes: [
+    { id: 'ceo', label: 'Maya Chen', data: { title: 'CEO' } },
+    { id: 'product', label: 'Noah Williams', data: { title: 'VP Product' } },
+    { id: 'engineering', label: 'Ava Patel', data: { title: 'VP Engineering' } }
+  ],
+  edges: [
+    { id: 'ceo-product', source: 'ceo', target: 'product', type: 'child' },
+    { id: 'ceo-engineering', source: 'ceo', target: 'engineering', type: 'child' }
+  ]
+})
 </script>
+
+<template>
+  <HierarchyView v-model="document" editable searchable />
+</template>
 ```
 
-## 数据与 API
+## Data model
 
-默认节点字段为 `label`、`children` 和 `expand`。可通过 `props` 适配其他数据结构：
+A document is a flat node-and-edge graph (no nested `children`), which makes multi-parent, spouse, and cross relationships first-class.
 
-```vue
-<vue2-org-tree
-  :data="tree"
-  :props="{ label: 'name', children: 'nodes', expand: 'open' }"
-/>
+```ts
+interface HierarchyDocument<T extends JSONValue = JSONValue> {
+  version: '2.0'
+  nodes: HierarchyNode<T>[]
+  edges: HierarchyEdge<T>[]
+}
+
+interface HierarchyNode<T extends JSONValue = JSONValue> {
+  id: string
+  label: string
+  data?: T
+  hasChildren?: boolean
+  childrenLoaded?: boolean
+  disabled?: boolean
+}
 ```
+
+Edges are discriminated by `type`:
+
+- `child` ? structural (`relationship: 'hierarchy'`) or family-linked (`biological` / `adoptive` / `step` / `guardian` with a `familyId`).
+- `spouse` ? `married` / `partnered` / `separated` / `divorced` / `widowed` with a `familyId`.
+- `cross` ? arbitrary labeled relationships (for example `mentor`), optionally `directed: true`.
+
+## API reference
 
 ### Props
 
-| 属性 | 类型 | 默认值 | 说明 |
+| Prop | Type | Default | Description |
 | --- | --- | --- | --- |
-| `data` | `Object` | 必填 | 根节点数据 |
-| `props` | `Object` | `{ label, children, expand }` | 字段映射 |
-| `horizontal` | `Boolean` | `false` | 使用水平布局 |
-| `collapsable` | `Boolean` | `false` | 显示展开/折叠按钮 |
-| `render-content` | `Function` | — | 自定义节点内容，参数为 `(h, node)`；可返回 VNode，或仅用于可信内容的 HTML 字符串 |
-| `label-width` | `String \| Number` | `150px` | 节点宽度 |
-| `label-height` | `String \| Number` | `20px` | 节点最小高度 |
-| `label-class-name` | `String \| Function` | — | 节点类名或 `(node) => className` |
-| `selected-key` | `String` | — | 判断节点是否选中的字段 |
-| `selected-class-name` | `String \| Function` | — | 选中节点类名 |
+| `modelValue` | `HierarchyDocument` | required | Controlled document (use `v-model`). |
+| `expandedIds` | `string[]` | `[]` | Controlled expanded node ids. |
+| `selectedId` | `string \| null` | `null` | Controlled selected node id. |
+| `checkedIds` | `string[]` | `[]` | Controlled checked node ids (permission mode). |
+| `editable` | `boolean` | `false` | Enable drag/drop reparenting and relationship removal. |
+| `parentMode` | `'single' \| 'multiple'` | `'single'` | Drag behavior: replace incoming parents, or add another parent. |
+| `searchable` | `boolean` | `true` | Show the search box and auto-expand matches. |
+| `checkable` | `boolean` | `false` | Show permission checkboxes with global DAG propagation. |
+| `cascadeChecks` | `boolean` | `true` | Cascade check state to descendants. |
+| `loadChildren` | `(node, ctx) => Promise<HierarchyFragment>` | ? | Lazy loader for unloaded branches. |
+| `nodeWidth` / `nodeHeight` | `number` | `190` / `76` | Node size in px. |
+| `columnGap` / `rowGap` | `number` | `36` / `86` | Layout gaps in px. |
 
 ### Events
 
-| 事件 | 参数 | 说明 |
+| Event | Payload |
+| --- | --- |
+| `update:modelValue` | `(document)` |
+| `update:expandedIds` | `(ids: string[])` |
+| `update:selectedId` | `(id: string \| null)` |
+| `update:checkedIds` | `(ids: string[])` |
+| `node-click` | `(node, event)` |
+| `load-start` / `load-success` / `load-error` | `(node, fragment \| error)` |
+| `edit-rejected` | `(error: HierarchyError)` |
+| `relationship-change` | `(result: CommandResult)` |
+| `import-error` / `export-error` | `(error: HierarchyError)` |
+
+### Slots
+
+| Slot | Props | Description |
 | --- | --- | --- |
-| `on-expand` | `(node, expanded)` | 展开状态改变 |
-| `resetOrg` | `(node)` | 展开后完成内部布局更新 |
-| `on-node-click` | `(event, node)` | 点击节点 |
-| `on-node-focus` | `(event, node)` | 节点获得焦点 |
-| `on-node-mouseover` | `(event, node)` | 鼠标进入节点 |
-| `on-node-mouseout` | `(event, node)` | 鼠标离开节点 |
-| `on-node-drag-start` | `(event, node)` | 开始拖动 |
-| `on-node-drag-over` | `(event, node)` | 拖动经过节点 |
-| `on-node-drop` | `(event, draggedNode, targetNode)` | 放置节点 |
+| `node` | `{ node, selected, expanded, checked, indeterminate }` | Custom node content. |
+| `node-actions` | `{ node, selected, expanded, checked, indeterminate }` | Extra node actions. |
+| `edge-label` | `{ edge, source, target }` | Custom edge labels. |
+| `empty` | ? | Empty state content. |
 
-### 扩展节点字段
+### Exposed methods
 
-演示使用以下可选字段：`stuckNeckFlag`、`leftOrRight`、`labelWidthExpand`、`lineColor`、`lineWidthHorizontal`、`lineWidthVertical`、`backColor` 和 `borderStyle`。参见 [`OrgTreeDemo.vue`](https://github.com/shuyuncong/vue-org-tree/blob/master/src/components/OrgTreeDemo.vue)。
+| Method | Description |
+| --- | --- |
+| `search(query)` | Search labels and JSON data, expanding matches. |
+| `focusNode(id)` | Select and scroll a node into view. |
+| `importJson(text)` | Validate and import a JSON document. |
+| `exportJson()` | Serialize the current document. |
+| `exportPng(options)` / `exportSvg(options)` | Export the rendered graph as an image. |
 
-`render-content` 返回字符串时会按 HTML 渲染。只应传入可信内容；对于用户或服务端数据，请返回 VNode，让 Vue 完成文本转义。
+## Lazy loading
 
-## 本地开发
+Return a `HierarchyFragment` from `loadChildren`; the component handles coalescing, aborting, and transactional merging.
 
-维护工具要求 Node `20.19+` 或 `22.12+`，npm `10+`；组件消费者使用 Vue `2.7.x`。支持当前 Chrome、Edge、Firefox 和 Safari，不再保证 IE。
+```ts
+async function loadChildren(node: HierarchyNode, ctx: { signal: AbortSignal }): Promise<HierarchyFragment> {
+  const rows = await fetch(`/api/children/${node.id}`, { signal: ctx.signal }).then(r => r.json())
+  return {
+    nodes: rows.map((row: any) => ({ id: row.id, label: row.label, hasChildren: row.hasChildren })),
+    edges: rows.map((row: any) => ({ id: `${node.id}-${row.id}`, source: node.id, target: row.id, type: 'child' }))
+  }
+}
+```
+
+## Versioning and migration
+
+- `2.x` ? Vue 3 rewrite published as `@shuyuncong/vue-hierarchy`; prereleases are published under the `next` npm tag until the stable `2.0.0`.
+- `1.x` ? Vue 2.7 maintenance line published as `tapn-org-tree`, preserving the original `Vue2OrgTree` component API. See [ROADMAP.md](ROADMAP.md) for the maintenance plan.
+- Migrating from `vue-org-tree` 1.x: convert nested `children` trees into a flat `nodes` + `edges` document and rename `@on-node-click` to `node-click` (payload order is `(node, event)`).
+
+## Development
+
+Requires Node `20.19+` or `22.12+` and npm `10+`.
 
 ```bash
 npm ci
-npm run dev          # http://localhost:8080/
-npm test             # 组件单元测试
-npm run test:e2e     # Chromium 演示烟雾测试
-npm run build        # ESM/UMD/CSS 库产物
-npm run build:demo   # GitHub Pages 演示产物
-npm run test:package # 安装并检查本地 npm tarball
+npm run dev          # Vite demo server at http://localhost:8080/
+npm test             # unit and component tests (Vitest)
+npm run test:e2e     # Chromium smoke tests for the production demo
+npm run verify       # typecheck, tests, benchmark, builds, and package verification
+npm run build        # ESM/CJS library plus TypeScript declarations and CSS in dist/
+npm run build:demo   # GitHub Pages demo in demo-dist/
+npm run test:package # install and validate the generated npm tarball
 ```
 
-## 致谢与许可
+## Credits and license
 
-本项目基于 [hukaibaihu/vue-org-tree](https://github.com/hukaibaihu/vue-org-tree) 的 MIT 许可实现继续扩展，并保留其版权声明。项目按 [MIT License](https://github.com/shuyuncong/vue-org-tree/blob/master/LICENSE) 发布。
+This project is a Vue 3 continuation of [hukaibaihu/vue-org-tree](https://github.com/hukaibaihu/vue-org-tree), retaining the upstream MIT copyright notice (`Copyright (c) 2018 Ste7en and others`). Released under the [MIT License](LICENSE).
 
-## English summary
+## ????
 
-Vue Org Tree is a maintained Vue 2.7 organization-chart component with custom rendering, collapsible branches, selection and pointer/drag events, connector styling, and specialized side nodes. Version `1.x` preserves Vue 2 compatibility; Vue 3 support is planned for a separate `2.x` line. See the Chinese sections above for the complete API and development guide.
+Vue Hierarchy ????? Vue 3 + TypeScript ????????????????? DAG???????????????????????????? `2.0.0-alpha.1` ? `next` tag ??? npm?`@shuyuncong/vue-hierarchy`??Vue 2 ??? `tapn-org-tree` ? `1.x` ???????????https://shuyuncong.github.io/vue-org-tree/

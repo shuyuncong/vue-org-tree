@@ -1,18 +1,27 @@
 # Roadmap
 
-## 1.x — Vue 2.7 maintenance
+The project is maintained in two lines:
 
-- 发布可复现的 `v1.0.0` 公共 npm 包和 GitHub Release。
-- 继续补充树布局、肩膀节点、拖放和截图回归测试。
-- 修复无障碍、键盘操作和小屏布局问题。
-- 整理历史 API，并在不破坏兼容性的前提下减少直接 DOM 操作。
-- 处理有效 Issue 和依赖安全更新。
+- `1.x` ? Vue 2.7 compatibility, published as `tapn-org-tree`.
+- `2.x` ? Vue 3 + TypeScript rewrite, published as `@shuyuncong/vue-hierarchy`.
 
-## 2.x — Vue 3 compatibility
+This roadmap reflects direction, not a delivery commitment. Feature requests are welcome through GitHub issues.
 
-- 调研 Vue 3 render API/Composition API 的迁移边界。
-- 提供迁移指南和 Vue 2/3 API 对照测试。
-- 在预发布版本中验证复杂节点、自定义渲染与样式兼容。
-- 达到文档、测试和真实使用验证标准后再发布稳定版。
+## 1.x ? Vue 2.7 maintenance
 
-路线图反映方向而非交付承诺。欢迎通过 Feature request 提供使用场景和优先级依据。
+- Publish the reproducible `v1.0.0` npm package and GitHub Release.
+- Add regression tests for tree layout, shoulder nodes, drag, and screenshots.
+- Fix accessibility, keyboard, and small-screen layout issues.
+- Keep the historical component API backward compatible.
+- Triage incoming issues and dependency security updates.
+
+## 2.x ? Vue 3 rewrite
+
+- Alpha (released `2.0.0-alpha.1`): typed data contracts, DAG layout, editing commands, permission propagation, transactional lazy loading, `HierarchyView` component, four demo pages, and unit/component/E2E/package verification.
+- Beta: stabilize the public API and type declarations; write the Vue 2 to Vue 3 migration guide; expand accessibility and slot documentation; polish PNG/SVG export; add community examples.
+- Stable `2.0.0`: promote from the `next` npm tag to `latest` after beta soak and real-world usage validation.
+
+## Non-goals
+
+- No server-side layout or persistence: the component is a pure client-side visualization framework with JSON in/out.
+- No visual editor chrome: editing is exposed through props, slots, and commands so applications keep full control.
