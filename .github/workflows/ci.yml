@@ -29,13 +29,16 @@ jobs:
         run: npm run typecheck
 
       - name: Run unit tests
-        run: npm test
+        run: npm run test:coverage
 
       - name: Run performance benchmark
         run: npm run benchmark
 
       - name: Build library
         run: npm run build
+
+      - name: Check published types
+        run: npx --no-install attw --pack . --exclude-entrypoints ./style.css
 
       - name: Build demo
         run: npm run build:demo

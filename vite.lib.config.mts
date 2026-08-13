@@ -7,7 +7,11 @@ export default defineConfig({
     entryRoot: 'src/lib',
     include: ['src/lib'],
     exclude: ['src/App.vue', 'src/main.ts', 'test'],
-    insertTypesEntry: true
+    insertTypesEntry: true,
+    outDirs: [
+      'dist',
+      { dir: 'dist-cjs', moduleFormat: 'cjs' }
+    ]
   })],
   build: {
     outDir: 'dist',

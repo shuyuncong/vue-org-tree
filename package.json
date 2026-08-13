@@ -12,9 +12,14 @@
   "style": "dist/style.css",
   "exports": {
     ".": {
-      "types": "./dist/index.d.ts",
-      "import": "./dist/vue-hierarchy.js",
-      "require": "./dist/vue-hierarchy.cjs"
+      "import": {
+        "types": "./dist/index.d.ts",
+        "default": "./dist/vue-hierarchy.js"
+      },
+      "require": {
+        "types": "./dist-cjs/index.d.cts",
+        "default": "./dist/vue-hierarchy.cjs"
+      }
     },
     "./style.css": "./dist/style.css"
   },
@@ -26,16 +31,18 @@
     "test:watch": "vitest",
     "test:e2e": "playwright test",
     "benchmark": "npm run build && node scripts/benchmark.mjs",
-    "build": "npm run typecheck && vite build --config vite.lib.config.mts",
+    "build": "npm run typecheck && vite build --config vite.lib.config.mts && node scripts/fix-declarations.mjs",
     "build:demo": "npm run typecheck && vite build",
     "build:demo:test": "vite build --mode test",
     "preview:demo": "vite preview",
     "test:package": "node scripts/verify-package.mjs",
     "verify": "npm run typecheck && npm test && npm run benchmark && npm run build && npm run build:demo && npm run test:package",
-    "prepack": "npm run build"
+    "prepack": "npm run build",
+    "test:coverage": "vitest run --coverage"
   },
   "files": [
     "dist/",
+    "dist-cjs/",
     "README.md",
     "LICENSE"
   ],
@@ -73,9 +80,12 @@
     "html-to-image": "^1.11.13"
   },
   "devDependencies": {
+    "@arethetypeswrong/cli": "^0.18.5",
+    "@microsoft/api-extractor": "^7.58.12",
     "@playwright/test": "^1.62.1",
     "@types/node": "^24.10.0",
     "@vitejs/plugin-vue": "^6.0.8",
+    "@vitest/coverage-v8": "^4.1.10",
     "@vue/server-renderer": "3.5.41",
     "@vue/test-utils": "^2.4.11",
     "jsdom": "^24.1.3",
