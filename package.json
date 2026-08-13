@@ -44,6 +44,7 @@
     "dist/",
     "dist-cjs/",
     "README.md",
+    "README.zh-CN.md",
     "LICENSE"
   ],
   "publishConfig": {

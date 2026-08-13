@@ -1,5 +1,7 @@
 # Vue Hierarchy
 
+[English](README.md) | [简体中文](README.zh-CN.md)
+
 Vue 3 + TypeScript framework for editable hierarchy, genealogy, permission, and relationship visualizations. One typed node-and-edge document drives organization charts, permission DAGs, real family trees, and lazy-loaded relationship views.
 
 - Package: `@shuyuncong/vue-hierarchy` (Vue 3, currently `2.0.0-alpha.1` on the `next` npm tag)
@@ -184,6 +186,7 @@ npm run test:package # install and validate the generated npm tarball
 
 This project is a Vue 3 continuation of [hukaibaihu/vue-org-tree](https://github.com/hukaibaihu/vue-org-tree), retaining the upstream MIT copyright notice (`Copyright (c) 2018 Ste7en and others`). Released under the [MIT License](LICENSE).
 
-## ????
 
-Vue Hierarchy ????? Vue 3 + TypeScript ????????????????? DAG???????????????????????????? `2.0.0-alpha.1` ? `next` tag ??? npm?`@shuyuncong/vue-hierarchy`??Vue 2 ??? `tapn-org-tree` ? `1.x` ???????????https://shuyuncong.github.io/vue-org-tree/
+## 中文简介
+
+Vue Hierarchy 是一个基于 Vue 3 + TypeScript 的可编辑层级、谱系、权限与关系可视化框架：一份带类型的节点-边文档即可驱动组织架构图、权限 DAG、真实家谱和懒加载关系视图。当前版本 `2.0.0-alpha.1` 通过 npm `next` tag 发布（`@shuyuncong/vue-hierarchy`）；Vue 2 兼容线为 `tapn-org-tree`（`1.x`，维护中）。完整中文文档见 [README.zh-CN.md](README.zh-CN.md)，在线演示：https://shuyuncong.github.io/vue-org-tree/
